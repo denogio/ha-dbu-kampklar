@@ -1,0 +1,140 @@
+# Kampklar-automatiseringer.
+#
+# Placering i HA: <config>/automations/kampklar.yaml
+# (forudsætter at du har `automation kampklar: !include_dir_merge_list automations/`
+#  eller tilsvarende i configuration.yaml.)
+#
+# Notify-service: notify.mobile_app_asus_ai2202
+#
+# Notifikationer åbner Kampklar-dashboardet ved tryk via `clickAction`.
+# Ret stien hvis dit dashboard ligger et andet sted (se URL'en i browseren
+# når du står på dashboardet — fx /lovelace/kampklar/0).
+
+# ───────────────────────────────────────────────────────────────
+# 1) Ny besked fra DBU → push
+#
+# Trigger når listen af beskeder ændrer sig OG der er kommet nye IDs til.
+# Skipper første kørsel efter HA-genstart (from_state ukendt).
+# ───────────────────────────────────────────────────────────────
+- id: kampklar_ny_besked
+  alias: Kampklar — ny besked
+  mode: queued
+  trigger:
+    - platform: state
+      entity_id: sensor.kampklar_beskeder
+      attribute: messages
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.from_state is not none
+           and trigger.from_state.state not in ['unknown','unavailable']
+           and trigger.from_state.attributes.messages is defined }}
+  action:
+    - variables:
+        old_ids: "{{ trigger.from_state.attributes.messages | map(attribute='id') | list }}"
+        new_msgs: >
+          {{ trigger.to_state.attributes.messages
+             | rejectattr('id','in', old_ids) | list }}
+    - condition: template
+      value_template: "{{ new_msgs | length > 0 }}"
+    - repeat:
+        for_each: "{{ new_msgs }}"
+        sequence:
+          - service: notify.mobile_app_asus_ai2202
+            data:
+              title: "DBU: {{ repeat.item.subject }}"
+              message: "{{ repeat.item.sender }}: {{ repeat.item.preview }}"
+              data:
+                tag: "kampklar-msg-{{ repeat.item.id }}"
+                channel: Kampklar
+                clickAction: "/lovelace/kampklar/0"
+
+# ───────────────────────────────────────────────────────────────
+# 2) Ny aktivitet planlagt → push
+# ───────────────────────────────────────────────────────────────
+- id: kampklar_ny_aktivitet
+  alias: Kampklar — ny aktivitet planlagt
+  mode: queued
+  trigger:
+    - platform: state
+      entity_id: sensor.kampklar_josva_kommende_aktiviteter
+      attribute: activities
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.from_state is not none
+           and trigger.from_state.state not in ['unknown','unavailable']
+           and trigger.from_state.attributes.activities is defined }}
+  action:
+    - variables:
+        old_ids: "{{ trigger.from_state.attributes.activities | map(attribute='id') | list }}"
+        new_acts: >
+          {{ trigger.to_state.attributes.activities
+             | rejectattr('id','in', old_ids) | list }}
+    - condition: template
+      value_template: "{{ new_acts | length > 0 }}"
+    - service: notify.mobile_app_asus_ai2202
+      data:
+        title: "DBU: {{ new_acts|length }} ny(e) aktivitet(er) for Josva"
+        message: >-
+          {% for a in new_acts %}
+          • {{ a.title }} — {{ a.weekday or '' }} {{ a.date }}{% if a.time %} kl. {{ a.time }}{% endif %}{% if a.location %} · {{ a.location }}{% endif %}
+          {% endfor %}
+        data:
+          tag: kampklar-new-activity
+          channel: Kampklar
+          clickAction: "/lovelace/kampklar/0"
+
+# ───────────────────────────────────────────────────────────────
+# 3) Påmindelse 2 timer før aktivitet
+# ───────────────────────────────────────────────────────────────
+- id: kampklar_paamindelse_2t
+  alias: Kampklar — 2 timer før aktivitet
+  mode: parallel
+  trigger:
+    - platform: calendar
+      event: start
+      entity_id: calendar.kampklar_josva_aktiviteter
+      offset: "-2:00:00"
+  action:
+    - service: notify.mobile_app_asus_ai2202
+      data:
+        title: "Om 2 timer: {{ trigger.calendar_event.summary }}"
+        message: >-
+          kl. {{ trigger.calendar_event.start.strftime('%H:%M') }}
+          {%- if trigger.calendar_event.location %} · {{ trigger.calendar_event.location }}{% endif %}
+          {%- if trigger.calendar_event.description %}
+
+          {{ trigger.calendar_event.description }}{% endif %}
+        data:
+          tag: "kampklar-reminder-{{ trigger.calendar_event.uid }}"
+          channel: Kampklar
+          clickAction: "/lovelace/kampklar/0"
+
+# ───────────────────────────────────────────────────────────────
+# 4) Daglig påmindelse om manglende tilmelding (kl. 18)
+# ───────────────────────────────────────────────────────────────
+- id: kampklar_mangler_tilmelding_daglig
+  alias: Kampklar — manglende tilmelding (daglig kl. 18)
+  mode: single
+  trigger:
+    - platform: time
+      at: "18:00:00"
+  condition:
+    - condition: numeric_state
+      entity_id: sensor.kampklar_josva_mangler_tilmelding
+      above: 0
+  action:
+    - variables:
+        acts: "{{ state_attr('sensor.kampklar_josva_mangler_tilmelding','activities') or [] }}"
+    - service: notify.mobile_app_asus_ai2202
+      data:
+        title: "DBU: {{ acts|length }} aktivitet(er) mangler svar"
+        message: >-
+          {% for a in acts[:5] %}
+          • {{ a.title }} ({{ a.date }}{% if a.time %} kl. {{ a.time }}{% endif %})
+          {% endfor %}
+        data:
+          tag: kampklar-pending
+          channel: Kampklar
+          clickAction: "/lovelace/kampklar/0"

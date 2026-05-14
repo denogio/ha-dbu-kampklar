@@ -1,0 +1,12 @@
+scripts/.env
+scripts/dumps/
+*.har
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.swp
+.DS_Store
+

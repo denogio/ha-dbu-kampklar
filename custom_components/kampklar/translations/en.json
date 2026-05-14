@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sign in to mit.dbu.dk",
+        "description": "Enter your DBU credentials. They are stored encrypted in Home Assistant and only used to fetch your children's activities and messages.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid username or password.",
+      "cannot_connect": "Could not reach dbu.dk. Check your network and try again.",
+      "unknown": "Unexpected error. Check the Home Assistant log."
+    },
+    "abort": {
+      "already_configured": "This DBU user is already configured."
+    }
+  }
+}

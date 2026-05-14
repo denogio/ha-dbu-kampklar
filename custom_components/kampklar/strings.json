@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Log ind på mit.dbu.dk",
+        "description": "Indtast dine DBU-credentials. De gemmes krypteret i Home Assistant og bruges kun til at hente dine børns aktiviteter og beskeder.",
+        "data": {
+          "username": "Brugernavn",
+          "password": "Adgangskode"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Forkert brugernavn eller adgangskode.",
+      "cannot_connect": "Kunne ikke nå dbu.dk. Tjek netværk og prøv igen.",
+      "unknown": "Uventet fejl. Se Home Assistant-loggen."
+    },
+    "abort": {
+      "already_configured": "Denne DBU-bruger er allerede konfigureret."
+    }
+  }
+}
