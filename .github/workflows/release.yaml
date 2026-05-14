@@ -1,0 +1,28 @@
+name: "Release"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+
+      - name: "Create ZIP"
+        run: |
+          cd custom_components/dbu-kampklar
+          zip -r ../../dbu-kampklar.zip .
+
+      - name: "Create Release"
+        uses: "softprops/action-gh-release@v1"
+        with:
+          files: "dbu-kampklar.zip"
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
